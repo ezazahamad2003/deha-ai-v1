@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deha AI Web</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Deha AI</h1>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <ul class="flash-messages">
+                {% for category, message in messages %}
+                    <li class="{{ category }}">{{ message }}</li>
+                {% endfor %}
+                </ul>
+            {% endif %}
+        {% endwith %}
+
+        <div class="upload-section">
+            <h2>Upload Medical PDF</h2>
+            <form method="POST" enctype="multipart/form-data" action="{{ url_for('index') }}">
+                <label for="pdf_file">Choose PDF file:</label>
+                <input type="file" name="pdf_file" id="pdf_file" accept=".pdf" required>
+                <button type="submit">Upload PDF</button>
+            </form>
+            <form method="GET" action="{{ url_for('reset_session') }}" style="margin-top: 10px;">
+                <button type="submit" class="reset-button">Reset Session / New PDF</button>
+            </form>
+        </div>
+
+        {% if pdf_processed %}
+        <div class="chat-section">
+            <h2>Chat with Deha AI</h2>
+            <div class="chat-box" id="chatBox">
+                {% for message_content in chat_history %}
+                    {% if message_content.role == 'user' %}
+                        {% if message_content.parts and '<PDF_START>' not in message_content.parts[0] %}
+                        <div class="message user-message"><strong>You:</strong> {{ message_content.parts[0] }}</div>
+                        {% endif %}
+                    {% elif message_content.role == 'model' %}
+                        {% if message_content.parts %}
+                        <div class="message ai-message"><strong>Deha AI:</strong> {{ message_content.parts[0] }}</div>
+                        {% endif %}
+                    {% endif %}
+                {% endfor %}
+            </div>
+            <form id="chatForm">
+                <label for="question">Your question:</label>
+                <input type="text" id="question" name="question" placeholder="Type your question here..." required>
+                <button type="submit">Send</button>
+            </form>
+            <div id="loader">Processing your question...</div>
+        </div>
+        
+        <!-- Call Button -->
+        <div class="call-button" id="startCallButton">
+            <i class="fas fa-phone-alt"></i>
+        </div>
+        
+        <!-- Call Interface -->
+        <div class="call-interface" id="callInterface">
+            <div class="call-status" id="callStatus">Call in progress...</div>
+            <div class="call-controls">
+                <div class="audio-visualizer">
+                    <div class="audio-level" id="audioLevel"></div>
+                </div>
+                <button class="end-call-button" id="endCallButton">
+                    <i class="fas fa-phone-slash"></i>
+                </button>
+            </div>
+        </div>
+        {% else %}
+        <p style="text-align:center; font-style:italic;">Please upload a PDF to start chatting.</p>
+        {% endif %}
+    </div>
+
+    <script src="{{ url_for('static', filename='js/chat.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/call.js') }}"></script>
+</body>
+</html>

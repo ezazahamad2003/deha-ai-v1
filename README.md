@@ -1,4 +1,21 @@
-# Deha AI - Medical Information System
+# Deha AI - Medical PDF Assistant
+
+Deha AI is a web application that allows users to upload medical PDFs and ask questions about the content. It features both text-based chat and voice interaction capabilities using Deepgram's speech recognition and text-to-speech technology.
+
+## Features
+
+- Upload and process medical PDF documents
+- Text-based chat interface to ask questions about the PDF content
+- Voice interaction through a call feature
+- Responsive design with visual feedback
+
+## Technologies Used
+
+- **Backend**: Flask (Python)
+- **Frontend**: HTML, CSS, JavaScript
+- **AI**: Google Gemini API for natural language processing
+- **Speech**: Deepgram API for speech recognition and text-to-speech
+- **PDF Processing**: PyPDF for text extraction
 
 ## Setup
 

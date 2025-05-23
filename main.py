@@ -2,6 +2,7 @@ import os
 import io
 import google.generativeai as genai
 from pypdf import PdfReader
+from audio import speak, listen
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
@@ -147,79 +148,90 @@ def deha_ai_backend(pdf_bytes: bytes, patient_question: str, chat_history: list)
         return llm_answer, updated_chat_history
 
     except Exception as e:
-        print(f"Error calling Gemini LLM: {e}")
+        print(f"Error calling Gemini LLM: {e}") # Keep this for internal debugging
+        # Provide a user-friendly message and return the original chat_history
         return "I apologize, but an unexpected error occurred while processing your request. Please try again later. For any medical concerns, please consult a healthcare professional.", chat_history
 
-# --- Interactive CLI Usage ---
 if __name__ == "__main__":
     print("Welcome to Deha AI! Your personal medical information assistant.")
 
-    pdf_bytes_for_session = b""
-    chat_history = [] # Initialize chat history here
+    pdf_bytes_for_session = b"" # Initialize
 
+    # --- PDF Loading Loop ---
     while True:
         pdf_file_path = input("\nPlease enter the path to your medical PDF file (e.g., medical_record.pdf) or type 'exit' to quit: ").strip()
 
         if pdf_file_path.lower() == 'exit':
             print("Exiting Deha AI. Goodbye!")
-            break
+            exit() # Exit the script if user types 'exit' here
 
         if not pdf_file_path:
-            print("No path entered. Please try again.")
+            print("  ❗ No path entered. Please try again.")
             continue
 
         try:
             with open(pdf_file_path, "rb") as f:
                 pdf_bytes_for_session = f.read()
-            print(f"Successfully loaded PDF from: '{pdf_file_path}'")
-            
-            # Initialize the chat history for the *new session* with the system prompt and PDF content
-            # This ensures the LLM has context from the start of the conversation.
-            initial_context_message = f"""
-            {SYSTEM_PROMPT_CONTENT}
-
-            Here is the extracted text from the patient's medical PDF:
-            <PDF_START>
-            {extract_text_from_pdf(pdf_bytes_for_session)}
-            <PDF_END>
-            """
-            
-            # Start a chat session with the initial context
-            # We explicitly define the model here for the chat session init
-            model_for_chat_init = genai.GenerativeModel(GEMINI_MODEL_NAME)
-            chat_session_initializer = model_for_chat_init.start_chat(history=[])
-            
-            # Send the initial context as the first user message
-            initial_response = chat_session_initializer.send_message(initial_context_message)
-            # The actual response might be empty or a greeting, which is fine for context setting
-            
-            chat_history = chat_session_initializer.history # Capture the initial context in history
-            
-            break # Exit the PDF input loop once successful
+            print(f"  ✅ Successfully loaded PDF from: '{pdf_file_path}'")
+            break # Exit PDF input loop once a valid PDF is loaded
         except FileNotFoundError:
-            print(f"Error: PDF file not found at '{pdf_file_path}'. Please check the path and try again.")
+            print(f"  ❌ Error: PDF file not found at '{pdf_file_path}'. Please check the path and try again.")
         except Exception as e:
-            print(f"An unexpected error occurred while reading the PDF: {e}")
+            print(f"  ❌ An unexpected error occurred while reading the PDF: {e}")
 
+    # This check is important. If the loop somehow exited without loading a PDF (though current logic should prevent this unless 'exit' is typed).
     if not pdf_bytes_for_session:
-        print("No PDF loaded. Deha AI cannot function without your medical record.")
+        print("No PDF loaded. Deha AI cannot function without your medical record. Exiting.")
         exit()
 
+    # Initialize chat history for the session
+    chat_history = []
+    
     print("\nPDF processed. You can now ask questions about your medical record or general health information.")
-    print("Type 'quit' or 'exit' to end the conversation.")
+    print("Type 'quit' or 'exit' to end the conversation.\n")
 
+    # --- Choose mode once ---
+    mode = ""
+    while mode not in ("audio", "text"):
+        mode = input("Select interaction mode ('audio' or 'text'): ").strip().lower()
+        if mode not in ("audio", "text"):
+            print("  ❗ Please enter exactly 'audio' or 'text'.")
+
+    # --- Main Q&A loop, inside the same scope where pdf_bytes_for_session exists ---
     while True:
-        user_question = input("\nYour question: ").strip()
+        if mode == "audio":
+            print("🎤 Listening...")
+            user_question = listen().strip()
+        else:
+            user_question = input("💬 Your question: ").strip()
 
-        if user_question.lower() in ['quit', 'exit']:
-            print("Exiting Deha AI. Goodbye!")
-            break
+        # skip empty
         if not user_question:
-            print("Please enter a question.")
-            continue
+            if mode == "audio":
+                print("   [Audio Info] Didn't catch that.")
+                continue
+            else:
+                print("Please enter a question.")
+                continue
 
-        # Pass the current chat_history and update it with the new turn
-        answer, chat_history = deha_ai_backend(pdf_bytes_for_session, user_question, chat_history)
-        
-        print(f"\nDeha AI's Answer:\n{answer}")
-        print("\n" + "="*70 + "\n")
+        # quit
+        if user_question.lower() in ("quit", "exit"):
+            bye = "Goodbye! Take care."
+            print(f"\n🤖 Deha AI: {bye}")
+            if mode == "audio":
+                speak(bye)
+            break
+
+        # ——— HERE is where pdf_bytes_for_session must be in scope ———
+        answer, chat_history = deha_ai_backend(
+            pdf_bytes_for_session,
+            user_question,
+            chat_history
+        )
+
+        # print/speak the answer
+        print(f"\n🤖 Deha AI:\n{answer}\n")
+        if mode == "audio":
+            speak(answer)
+
+        print("="*60, "\n")
