@@ -35,8 +35,21 @@ engine = pyttsx3.init()
 
 # --- Text-to-Speech Function ---
 
+# Add a global variable to track if we should stop audio operations
+_should_stop_audio = False
+
+def set_stop_audio(should_stop=True):
+    """
+    Sets the flag to stop audio operations.
+    """
+    global _should_stop_audio
+    _should_stop_audio = should_stop
+
 def speak(text):
     try:
+        global _should_stop_audio
+        _should_stop_audio = False
+        
         # STEP 1: Initialize Deepgram Client
         deepgram = DeepgramClient(api_key=DEEPGRAM_API_KEY)
         SPEAK_TEXT = {"text": text}
@@ -48,11 +61,13 @@ def speak(text):
         # STEP 3: Call the save method with correct arguments
         response = deepgram.speak.rest.v("1").save(filename, SPEAK_TEXT, options)
 
-        print(response.to_json(indent=4))
         print(f"✅ Speech saved as {filename}")
 
-         # STEP 4: Play the generated speech file
+        # STEP 4: Play the generated speech file
         play_mp3(filename)
+        
+        # Add a small delay to ensure everything is complete
+        time.sleep(0.5)
 
     except Exception as e:
         print(f"🚨 Exception: {e}")
@@ -62,20 +77,26 @@ def play_mp3(file_path):
     Plays an MP3 file using pygame.
     """
     try:
+        global _should_stop_audio
         
         pygame.init()
         pygame.mixer.init()
         pygame.mixer.music.load(file_path)
         pygame.mixer.music.play()
-        print("🔊 Playing MP3...")
-
-        while pygame.mixer.music.get_busy():
-            pygame.time.Clock().tick(10)  # Keeps playing until the file ends
-
-        print("🔊 Audio playback complete.")
-
+        
+        # Wait for playback to complete or until stop is requested
+        while pygame.mixer.music.get_busy() and not _should_stop_audio:
+            pygame.time.Clock().tick(10)
+        
+        # If we're stopping due to a request, stop the playback
+        if _should_stop_audio:
+            pygame.mixer.music.stop()
+            print("🛑 Audio playback stopped by request.")
+        else:
+            print("🔊 Audio playback complete.")
+            
         pygame.mixer.music.unload()
-
+        
     except Exception as e:
         print(f"🚨 Error playing MP3: {e}")
 
@@ -92,6 +113,9 @@ def record_audio(samplerate=16000, channels=1, chunk=320, silence_duration=1.5):
     Returns:
       The filename of the recorded WAV file.
     """
+    global _should_stop_audio
+    _should_stop_audio = False
+    
     print("🎤 Listening... Speak now!")
 
     # Initialize PyAudio
@@ -110,7 +134,7 @@ def record_audio(samplerate=16000, channels=1, chunk=320, silence_duration=1.5):
     silence_count = 0
     silence_threshold = int(silence_duration * samplerate / chunk)  # Convert silence time to chunks
 
-    while True:
+    while not _should_stop_audio:
         data = stream.read(chunk, exception_on_overflow=False)
         frames.append(data)
         
@@ -133,6 +157,11 @@ def record_audio(samplerate=16000, channels=1, chunk=320, silence_duration=1.5):
     stream.stop_stream()
     stream.close()
     p.terminate()
+
+    # If stopped by request and no frames were captured, return None
+    if _should_stop_audio and not frames:
+        print("🛑 Recording stopped by request with no audio captured.")
+        return None
 
     # Save to a temporary WAV file
     temp_wav = tempfile.NamedTemporaryFile(delete=False, suffix=".wav")

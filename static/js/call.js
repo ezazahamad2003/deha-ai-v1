@@ -143,8 +143,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 throw new Error(errorData.error || 'Failed to generate speech');
             }
             
-            // Wait a moment for the speech to finish (server handles playback)
-            await new Promise(resolve => setTimeout(resolve, speakData.answer.length * 80));
+            // CHANGE: Reduce the wait time after speech
+            // Instead of using a fixed time based on text length, use a smaller fixed delay
+            await new Promise(resolve => setTimeout(resolve, 500)); // Just 500ms delay
             
             // Start the next conversation turn if the call is still active
             if (isCallActive) {

@@ -1,4 +1,6 @@
 import os
+from flask import Flask, render_template, request, jsonify, session
+from werkzeug.utils import secure_filename
 import io
 import flask
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for
@@ -46,16 +48,23 @@ except Exception as e:
     # but for now, exiting or raising is fine for startup.
     raise
 
-# --- PDF Text Extraction Function (copied from main.py) ---
-def extract_text_from_pdf(pdf_bytes: bytes) -> str:
+# --- PDF Text Extraction Function ---
+def extract_text_from_pdf(pdf_input):
+    """Extract text from a PDF file path or bytes."""
+    text = ""
     try:
-        pdf_file = io.BytesIO(pdf_bytes)
-        reader = PdfReader(pdf_file)
-        text = ""
+        from pypdf import PdfReader
+        import io
+        # Handle both file paths and bytes
+        if isinstance(pdf_input, bytes):
+            pdf_file = io.BytesIO(pdf_input)
+            reader = PdfReader(pdf_file)
+        else:  # Assume it's a file path
+            reader = PdfReader(pdf_input)
         for page in reader.pages:
-            extracted_page_text = page.extract_text()
-            if extracted_page_text:
-                text += extracted_page_text + "\n"
+            extracted_text = page.extract_text()
+            if extracted_text:
+                text += extracted_text + "\n"
         return text
     except Exception as e:
         app.logger.error(f"Error extracting text from PDF: {e}")
@@ -221,6 +230,10 @@ def reset_session():
     flask.flash('Session reset. Please upload a new PDF.')
     return redirect(url_for('index'))
 
+# Add this import at the top of your file
+from audio import speak, listen, set_stop_audio
+
+# Then update your call endpoint
 @app.route('/call', methods=['POST'])
 def call():
     """Handle voice call requests"""
@@ -235,6 +248,8 @@ def call():
     elif action == 'end':
         # End call session
         session.pop('call_active', None)
+        # Stop any ongoing audio operations
+        set_stop_audio(True)
         return jsonify({"status": "Call ended"})
     
     elif action == 'speak':
@@ -295,6 +310,91 @@ def text_to_speech():
     except Exception as e:
         app.logger.error(f"Error in text_to_speech: {str(e)}")
         return jsonify({"error": f"Error generating speech: {str(e)}"}), 500
+
+@app.route('/chat', methods=['POST'])
+def chat():
+    data = request.get_json()
+    user_message = data.get('message', '')
+    
+    if not user_message:
+        return jsonify({"response": "Please provide a message"}), 400
+    
+    # Get PDF text from session - use patient_pdf_content to match the rest of your code
+    patient_pdf_content = session.get('patient_pdf_content', '')
+    
+    if not patient_pdf_content:
+        return jsonify({"response": "Please upload a PDF document first"}), 400
+    
+    # Process the message with your AI model
+    try:
+        # Call your Gemini API
+        response = process_with_gemini(user_message, patient_pdf_content)
+        return jsonify({"response": response}), 200
+    except Exception as e:
+        return jsonify({"response": f"Error: {str(e)}"}), 500
+
+def process_with_gemini(question, context):
+    """Process a question with Google's Gemini API."""
+    # Import your Gemini processing code here
+    import google.generativeai as genai
+    from dotenv import load_dotenv
+    import os
+    
+    load_dotenv()
+    
+    # Configure the API key
+    genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+    
+    # Set up the model - use the same model as defined at the top of the file
+    model = genai.GenerativeModel(GEMINI_MODEL_NAME)  # Use GEMINI_MODEL_NAME instead of hardcoded 'gemini-pro'
+    
+    # Create a prompt with the context and question
+    prompt = f"""
+    Context information is below.
+    ---------------------
+    {context}
+    ---------------------
+    Given the context information and not prior knowledge, answer the question: {question}
+    """
+    
+    # Generate a response
+    response = model.generate_content(prompt)
+    
+    return response.text
+
+# Add this route to handle file uploads
+@app.route('/upload', methods=['POST'])
+def upload_file():
+    if 'pdfFile' not in request.files:
+        return jsonify({"error": "No file part"}), 400
+
+    file = request.files['pdfFile']
+
+    if file.filename == '':
+        return jsonify({"error": "No selected file"}), 400
+
+    if file and file.filename.endswith('.pdf'):
+        try:
+            # Read the file bytes
+            pdf_bytes = file.read()
+
+            # Extract text directly from bytes
+            pdf_text = extract_text_from_pdf(pdf_bytes)
+
+            if not pdf_text.strip():
+                return jsonify({"error": "Could not extract text from PDF"}), 400
+
+            # Store in session for later use
+            session['patient_pdf_content'] = pdf_text
+            session['pdf_filename'] = file.filename
+            session['chat_history'] = []  # Initialize chat history
+
+            return jsonify({"success": True, "filename": file.filename}), 200
+        except Exception as e:
+            app.logger.error(f"Error processing PDF: {e}")
+            return jsonify({"error": str(e)}), 500
+    else:
+        return jsonify({"error": "File must be a PDF"}), 400
 
 if __name__ == '__main__':
     app.run(debug=True, port=5001) # Use a different port if 5000 is in use

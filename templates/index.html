@@ -3,83 +3,76 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Deha AI Web</title>
+    <title>Deha AI - Medical PDF Assistant</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
 </head>
 <body>
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="logo">
+                <!-- Remove or comment out the img tag -->
+                <!-- <img src="{{ url_for('static', filename='images/deha-logo.png') }}" alt="Deha AI Logo"> -->
+                <span>Deha AI</span>
+            </div>
+            <ul class="nav-links">
+                <li><a href="#" class="active">Home</a></li>
+                <li><a href="#">About</a></li>
+                <li><a href="#">Contact</a></li>
+            </ul>
+        </div>
+    </nav>
+
     <div class="container">
-        <h1>Deha AI</h1>
-
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                <ul class="flash-messages">
-                {% for category, message in messages %}
-                    <li class="{{ category }}">{{ message }}</li>
-                {% endfor %}
-                </ul>
-            {% endif %}
-        {% endwith %}
-
-        <div class="upload-section">
-            <h2>Upload Medical PDF</h2>
-            <form method="POST" enctype="multipart/form-data" action="{{ url_for('index') }}">
-                <label for="pdf_file">Choose PDF file:</label>
-                <input type="file" name="pdf_file" id="pdf_file" accept=".pdf" required>
-                <button type="submit">Upload PDF</button>
-            </form>
-            <form method="GET" action="{{ url_for('reset_session') }}" style="margin-top: 10px;">
-                <button type="submit" class="reset-button">Reset Session / New PDF</button>
-            </form>
-        </div>
-
-        {% if pdf_processed %}
-        <div class="chat-section">
-            <h2>Chat with Deha AI</h2>
-            <div class="chat-box" id="chatBox">
-                {% for message_content in chat_history %}
-                    {% if message_content.role == 'user' %}
-                        {% if message_content.parts and '<PDF_START>' not in message_content.parts[0] %}
-                        <div class="message user-message"><strong>You:</strong> {{ message_content.parts[0] }}</div>
-                        {% endif %}
-                    {% elif message_content.role == 'model' %}
-                        {% if message_content.parts %}
-                        <div class="message ai-message"><strong>Deha AI:</strong> {{ message_content.parts[0] }}</div>
-                        {% endif %}
-                    {% endif %}
-                {% endfor %}
-            </div>
-            <form id="chatForm">
-                <label for="question">Your question:</label>
-                <input type="text" id="question" name="question" placeholder="Type your question here..." required>
-                <button type="submit">Send</button>
-            </form>
-            <div id="loader">Processing your question...</div>
-        </div>
-        
-        <!-- Call Button -->
-        <div class="call-button" id="startCallButton">
-            <i class="fas fa-phone-alt"></i>
-        </div>
-        
-        <!-- Call Interface -->
-        <div class="call-interface" id="callInterface">
-            <div class="call-status" id="callStatus">Call in progress...</div>
-            <div class="call-controls">
-                <div class="audio-visualizer">
-                    <div class="audio-level" id="audioLevel"></div>
+        <div class="app-container">
+            <div class="upload-section">
+                <h2>Upload Medical PDF</h2>
+                <div class="dropzone" id="dropzone">
+                    <div class="dropzone-content">
+                        <i class="fas fa-file-pdf"></i>
+                        <p>Drag & drop your PDF here or</p>
+                        <label for="pdfFile" class="upload-btn">Browse Files</label>
+                        <input type="file" id="pdfFile" name="pdfFile" accept=".pdf" style="display: none;">
+                    </div>
+                    <div class="dropzone-uploading">
+                        <div class="spinner"></div>
+                        <p>Uploading...</p>
+                    </div>
+                    <div class="dropzone-success">
+                        <i class="fas fa-check-circle"></i>
+                        <p>Upload Complete!</p>
+                        <span id="uploadedFileName"></span>
+                    </div>
                 </div>
-                <button class="end-call-button" id="endCallButton">
-                    <i class="fas fa-phone-slash"></i>
-                </button>
+            </div>
+
+            <div class="chat-section">
+                <div class="chat-container">
+                    <div id="chatMessages" class="chat-messages"></div>
+                    <div class="chat-input-container">
+                        <input type="text" id="userInput" placeholder="Ask a question about the PDF...">
+                        <button id="sendButton"><i class="fas fa-paper-plane"></i></button>
+                        <button id="startCallButton"><i class="fas fa-microphone"></i></button>
+                    </div>
+                </div>
             </div>
         </div>
-        {% else %}
-        <p style="text-align:center; font-style:italic;">Please upload a PDF to start chatting.</p>
-        {% endif %}
+
+        <div id="callInterface" class="call-interface">
+            <div class="call-container">
+                <div id="callStatus" class="call-status">Ready</div>
+                <div class="audio-visualization">
+                    <div id="audioLevel" class="audio-level"></div>
+                </div>
+                <div id="chatBox" class="chat-box"></div>
+                <button id="endCallButton" class="end-call-button"><i class="fas fa-phone-slash"></i> End Call</button>
+            </div>
+        </div>
     </div>
 
-    <script src="{{ url_for('static', filename='js/chat.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
     <script src="{{ url_for('static', filename='js/call.js') }}"></script>
 </body>
 </html>
